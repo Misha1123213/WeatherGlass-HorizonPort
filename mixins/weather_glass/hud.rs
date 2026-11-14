@@ -53,8 +53,17 @@ fn weather_glass_hud(
         }
     };
 
-    let w = corners.width();
-    let h = corners.height();
+    // Corners has no width()/height() getters; probe it with zero-size
+    // place() calls. The few-pixel margin is irrelevant for an overlay.
+    let w = corners
+        .place(horizon_client_lib::extras_hud::Corner::TopRight, 0.0, 0.0)
+        .0
+        + 8.0;
+    let h = corners
+        .place(horizon_client_lib::extras_hud::Corner::BottomLeft, 0.0, 0.0)
+        .1
+        + 8.0;
+
     let tick = m::next_tick();
     let s = options.strength.mul();
 
