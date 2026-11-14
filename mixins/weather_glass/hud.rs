@@ -1,10 +1,8 @@
 // The HUD film: weather effects drawn while the player looks at glass.
-// Drawing uses only verified fdc87ae APIs: native_weather, native_player,
-// native_block, native_biome and native_fill.
-
+// One function per helper file: the mixin tool splices it into the hook.
 fn weather_glass_hud(
     game: &mut crate::game::Game<'_>,
-    batch: &mut crate::extras::hud::HudBatch,
+    batch: &mut horizon_client::mod_api::HudBatch,
     corners: &mut crate::extras::hud::Corners,
 ) {
     use crate::game::weather_glass as m;
@@ -22,8 +20,39 @@ fn weather_glass_hud(
     let Some(player) = game.native_player() else {
         return;
     };
-    let Some((dist, glass_pos)) = raycast_to_glass(game, &player) else {
-        return;
+
+    // Raycast from the eye; the first non-air block wins if it is glass.
+    let (dist, glass_pos) = {
+        let yaw = (player.yaw as f64).to_radians();
+        let pitch = (player.pitch as f64).to_radians();
+        let dx = -yaw.sin() * pitch.cos();
+        let dy = -pitch.sin();
+        let dz = yaw.cos() * pitch.cos();
+        let (ex, ey, ez) = (player.x, player.y + 1.62, player.z);
+        let mut found = None;
+        let mut dist = 0.0_f32;
+        let mut t = 0.15_f64;
+        while t < 5.0 {
+            let pos = [
+                (ex + dx * t).floor() as i32,
+                (ey + dy * t).floor() as i32,
+                (ez + dz * t).floor() as i32,
+            ];
+            let name = game.native_block(pos);
+            if m::is_air(&name) {
+                t += 0.1;
+                continue;
+            }
+            if m::is_glass(&name) {
+                found = Some(pos);
+                dist = t as f32;
+            }
+            break;
+        }
+        match found {
+            Some(p) => (dist, p),
+            None => return,
+        }
     };
 
     let w = corners.width();
@@ -46,7 +75,6 @@ fn weather_glass_hud(
             let off = m::hash01(0, i + 2000) * h;
             let y = h - ((tick as f32 * speed + off) % h);
             let len = 6.0 + 14.0 * m::hash01(tick, i + 3000);
-            // wind slant, stronger in thunder
             let x = x0 + (h - y) * 0.05 * (0.5 + thunder);
             let alpha = (0x30.0 + 0x30.0 * intensity) as u32;
             game.native_fill(batch, [x, y, 1.5, len], (alpha << 24) | 0x00A8_BDD0);
@@ -105,46 +133,12 @@ fn weather_glass_hud(
             let bh = h * 0.22 * (0.6 + 0.6 * t);
             let cx = w * 0.5 - bw * 0.5;
             let cy = h * 0.68;
-            game.native_fill(batch, [cx, cy, bw, bh], (alpha << 24) | 0x00FFFFFF);
+            game.native_fill(batch, [cx, cy, bw, bh], (alpha << 24) | 0x00FF_FF_FF);
             game.native_fill(
                 batch,
                 [cx + bw * 0.2, cy - bh * 0.3, bw * 0.6, bh * 0.7],
-                ((alpha / 2) << 24) | 0x00FFFFFF,
+                ((alpha / 2) << 24) | 0x00FF_FF_FF,
             );
         }
     }
-}
-
-/// Walk from the eye up to `max` blocks; the first non-air block wins if
-/// it is glass. Anything solid in between hides the film.
-fn raycast_to_glass(
-    game: &mut crate::game::Game<'_>,
-    p: &crate::game::native_hooks::NativePlayer,
-) -> Option<(f32, [i32; 3])> {
-    use crate::game::weather_glass as m;
-    const MAX: f64 = 5.0;
-    let yaw = (p.yaw as f64).to_radians();
-    let pitch = (p.pitch as f64).to_radians();
-    let dx = -yaw.sin() * pitch.cos();
-    let dy = -pitch.sin();
-    let dz = yaw.cos() * pitch.cos();
-    let (ex, ey, ez) = (p.x, p.y + 1.62, p.z);
-    let mut t = 0.15;
-    while t < MAX {
-        let pos = [
-            (ex + dx * t).floor() as i32,
-            (ey + dy * t).floor() as i32,
-            (ez + dz * t).floor() as i32,
-        ];
-        let name = game.native_block(pos);
-        if m::is_air(&name) {
-            t += 0.1;
-            continue;
-        }
-        if m::is_glass(&name) {
-            return Some((t as f32, pos));
-        }
-        return None;
-    }
-    None
 }
