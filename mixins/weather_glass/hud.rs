@@ -1,9 +1,8 @@
 // The HUD film: weather effects drawn while the player looks at glass.
-// One function per helper file: the mixin tool splices it into the hook.
 fn weather_glass_hud(
     game: &mut crate::game::Game<'_>,
     batch: &mut horizon_client::mod_api::HudBatch,
-    corners: &mut crate::extras::hud::Corners,
+    corners: &mut horizon_client::mod_api::Corners,
 ) {
     use crate::game::weather_glass as m;
 
@@ -21,7 +20,6 @@ fn weather_glass_hud(
         return;
     };
 
-    // Raycast from the eye; the first non-air block wins if it is glass.
     let (dist, glass_pos) = {
         let yaw = (player.yaw as f64).to_radians();
         let pitch = (player.pitch as f64).to_radians();
@@ -66,9 +64,8 @@ fn weather_glass_hud(
     let cold = m::is_cold_biome(&biome);
     let dry = m::is_dry_biome(&biome);
 
-    // Rain film: running drops and a few static beads.
     if options.rain && intensity > 0.02 {
-        let drops = (26.0 * intensity * s) as i32;
+        let drops = (26.0 * intensity * s) as u32;
         for i in 0..drops {
             let x0 = m::hash01(tick / 3, i) * w;
             let speed = 1.6 + 3.2 * m::hash01(tick, i + 1000);
@@ -76,10 +73,10 @@ fn weather_glass_hud(
             let y = h - ((tick as f32 * speed + off) % h);
             let len = 6.0 + 14.0 * m::hash01(tick, i + 3000);
             let x = x0 + (h - y) * 0.05 * (0.5 + thunder);
-            let alpha = (0x30.0 + 0x30.0 * intensity) as u32;
+            let alpha = (48.0 + 48.0 * intensity) as u32;
             game.native_fill(batch, [x, y, 1.5, len], (alpha << 24) | 0x00A8_BDD0);
         }
-        for j in 0..10 {
+        for j in 0..10u32 {
             let x = m::hash01(0, j + 4000) * w;
             let y = m::hash01(0, j + 5000) * h;
             let r = 1.0 + 2.0 * m::hash01(0, j + 6000);
@@ -87,7 +84,6 @@ fn weather_glass_hud(
         }
     }
 
-    // Frost film from the edges in cold biomes; rain makes it heavier.
     if options.frost && cold {
         let boost = 1.0 + intensity * 0.6;
         let t = (8.0 + 16.0 * boost) * s;
@@ -103,7 +99,6 @@ fn weather_glass_hud(
         }
     }
 
-    // Dust veil creeping from the sides in dry biomes when it is not raining.
     if options.dust && dry && rain <= 0.02 {
         for k in 0..4u32 {
             let size = w * (0.25 + 0.2 * m::hash01(0, k + 7000));
@@ -113,7 +108,7 @@ fn weather_glass_hud(
                 % span)
                 - size;
             let y = m::hash01(tick / 8, k + 7300) * h * 0.7;
-            let alpha = (0x12 + (0x10.0 * m::hash01(tick, k + 7400)) as u32) << 24;
+            let alpha = (0x12 + (16.0 * m::hash01(tick, k + 7400)) as u32) << 24;
             game.native_fill(batch, [x, y, size, size * 0.6], alpha | 0x00C1_9A66);
         }
         for g in 0..14u32 {
@@ -123,12 +118,11 @@ fn weather_glass_hud(
         }
     }
 
-    // Breath fog when close to cold glass: a soft blob every few seconds.
     if options.breath && cold && dist < 1.7 {
         let phase = tick % 260;
         if phase < 100 {
             let t = phase as f32 / 100.0;
-            let alpha = ((1.0 - t) * 0x22.0) as u32;
+            let alpha = ((1.0 - t) * 34.0) as u32;
             let bw = w * 0.45 * (0.6 + 0.6 * t);
             let bh = h * 0.22 * (0.6 + 0.6 * t);
             let cx = w * 0.5 - bw * 0.5;

@@ -20,8 +20,8 @@ hook_version = 1
 helper = "hud.rs"
 bindings = [
   { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
-    { name = "batch", ty = "&mut horizon_client::mod_api::HudBatch", value = "batch" },
-  { name = "corners", ty = "&mut crate::extras::hud::Corners", value = "corners" },
+  { name = "batch", ty = "&mut horizon_client::mod_api::HudBatch", value = "batch" },
+  { name = "corners", ty = "&mut horizon_client::mod_api::Corners", value = "corners" },
 ]
 
 [[injection]]
